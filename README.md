@@ -1,5 +1,7 @@
 # Pay Tracker
 
+**App:** <https://zumux.github.io/pay-tracker/>
+
 A small app for tracking work shifts, pay rates and pay periods. It runs on Android and iPhone as an installable web app (PWA). All data is stored on the phone, works offline, and can be exported and imported as files.
 
 ## Features
@@ -91,9 +93,17 @@ The files must be served over HTTPS for the app to install. Either free option w
 
 ## Updating the app
 
+The app is hosted on GitHub Pages from the `main` branch of <https://github.com/Zumux/pay-tracker>.
+
 1. Edit the files.
 2. In `sw.js`, bump the version in `const CACHE = 'pay-tracker-v3'` (e.g. to `v4`). **Without this, phones keep showing the old version.**
-3. Upload to the same host and URL as before.
+3. Commit and push:
+   ```
+   git add -A
+   git commit -m "Describe the change"
+   git push
+   ```
+   GitHub Pages republishes automatically within a minute or two.
 
 Phones pick up the update the next time the app is opened (sometimes it takes a second open). Data is not affected.
 
