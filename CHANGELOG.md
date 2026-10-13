@@ -2,9 +2,17 @@
 
 All notable changes to Pay Tracker. Newest first.
 
-When releasing a change, add an entry here and bump the cache version in `sw.js` (the version in brackets below) so phones pick up the update.
+When releasing a change, add an entry here and bump the cache version in `sw.js` (noted in brackets below) so phones pick up the update.
+
+**This file is shown inside the app.** The first time someone opens a new version, a "What's new" popup shows every release section newer than the one they last saw. Write entries for the person using the app, use a heading like `## [1.2.0] - 2026-11-01`, and keep the `## [Unreleased]` heading above it for work in progress (it is never shown).
 
 ## [Unreleased]
+
+## [1.1.0] - 2026-10-12 (sw cache `pay-tracker-v4`)
+
+### Added
+- **What's new popup**: after an update, the app shows what changed, once. You can see it again any time from ⚙ → About → What's new.
+- The app version is now shown in ⚙ → About.
 
 ## [1.0.0] - 2026-10-12 (sw cache `pay-tracker-v3`)
 

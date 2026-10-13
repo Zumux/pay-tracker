@@ -36,6 +36,7 @@ const EMPTY = () => ({
   actualNet: {}, // period start (yyyy-mm-dd) → net pay actually received
   settings: { deductionPct: 20, timeFormat: '12', province: '', customHolidays: [] },
   lastBackup: null,
+  seenVersion: null, // last release whose "What's new" notes were shown
 });
 let S = EMPTY();
 let dbPromise = null;
@@ -93,6 +94,7 @@ function normalize(raw) {
     if (isYmd(start) && Number(amount) > 0) s.actualNet[start] = round2(Number(amount));
   }
   s.lastBackup = typeof raw.lastBackup === 'string' ? raw.lastBackup : null;
+  s.seenVersion = typeof raw.seenVersion === 'string' ? raw.seenVersion : null;
   sortRates(s);
   return s;
 }
@@ -540,6 +542,12 @@ function settingsHtml() {
       <p style="margin-bottom:0">1st–15th is paid on the last day of the month. 16th–end of month is paid on the 15th of the next month. Paydays on a weekend or stat holiday move to the business day before.</p>
     </div>
 
+    <div class="card panel">
+      <h3>About</h3>
+      <p>Pay Tracker${APP_VERSION ? ' version ' + esc(APP_VERSION) : ''}</p>
+      <button class="btn" type="button" data-action="whatsNew">What's new</button>
+    </div>
+
     <p class="meta" id="storageStatus" style="margin:12px 4px"></p>`;
 }
 
@@ -856,6 +864,7 @@ async function importFile(file) {
       const msg = `Replace ALL current data with this backup?\n\nBackup: ${next.shifts.length} shifts, ${next.rates.length} rates.\nCurrent: ${S.shifts.length} shifts, ${S.rates.length} rates.`;
       if (!confirm(msg)) return;
       next.lastBackup = raw.exported || new Date().toISOString();
+      next.seenVersion = S.seenVersion;
       S = next;
       commit('Backup restored');
     } else {
@@ -900,6 +909,7 @@ $('#view').addEventListener('click', ev => {
       return commit();
     }
     if (a === 'actual') return openActual(action.dataset.start);
+    if (a === 'whatsNew') return RELEASES.length ? showReleaseNotes(RELEASES.slice(0, 3), 'What’s new') : toast('Release notes are not available right now.');
     if (a === 'yearPrev' || a === 'yearNext') {
       YEAR = String(Number(YEAR) + (a === 'yearNext' ? 1 : -1));
       return render();
@@ -954,6 +964,87 @@ $('#importFile').onchange = ev => {
 // Re-render when the app comes back to the foreground so "today" stays correct.
 document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
 
+/* ================= What's new ================= */
+
+// CHANGELOG.md is the single source of release notes. The newest "## [x.y.z]" section is the app's version.
+let APP_VERSION = '';
+let RELEASES = [];
+
+async function loadReleases() {
+  const res = await fetch('CHANGELOG.md');
+  if (!res.ok) return [];
+  const releases = [];
+  let current = null;
+  for (const line of (await res.text()).split(/\r?\n/)) {
+    const h = line.match(/^## \[(\d+\.\d+\.\d+)\](?:\s*-\s*(\d{4}-\d{2}-\d{2}))?/);
+    if (h) {
+      current = { version: h[1], date: h[2] || '', lines: [] };
+      releases.push(current);
+    } else if (/^## /.test(line)) {
+      current = null; // e.g. "Unreleased"
+    } else if (current) {
+      current.lines.push(line);
+    }
+  }
+  return releases;
+}
+
+const compareVersions = (a, b) => {
+  const x = a.split('.').map(Number), y = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] - y[i];
+  return 0;
+};
+
+// Just enough Markdown for the changelog: headings, bullets, bold, code, links.
+function markdownHtml(lines) {
+  const inline = s => esc(s)
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/`(.+?)`/g, '<code>$1</code>')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');
+  let html = '', inList = false;
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (/^[-*] /.test(line)) {
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += `<li>${inline(line.slice(2))}</li>`;
+      continue;
+    }
+    if (inList) { html += '</ul>'; inList = false; }
+    if (/^#{3,} /.test(line)) html += `<h4>${inline(line.replace(/^#+ /, ''))}</h4>`;
+    else if (line) html += `<p>${inline(line)}</p>`;
+  }
+  return html + (inList ? '</ul>' : '');
+}
+
+function showReleaseNotes(releases, title) {
+  $('#form').innerHTML = `
+    <h2>${esc(title)}</h2>
+    <div class="notes">
+      ${releases.map(r => `
+        <div class="meta"><b>Version ${esc(r.version)}</b>${r.date ? ' · ' + esc(fmtLong(r.date)) : ''}</div>
+        ${markdownHtml(r.lines)}`).join('')}
+    </div>
+    <div class="actions"><button class="btn primary" type="submit">Got it</button></div>`;
+  $('#form').oninput = null;
+  $('#form').onsubmit = ev => { ev.preventDefault(); $('#dlg').close(); };
+  $('#dlg').showModal();
+}
+
+// Shows notes for every release newer than the last one seen, once. New installs skip straight to current.
+async function checkWhatsNew() {
+  RELEASES = await loadReleases().catch(() => []);
+  if (!RELEASES.length) return;
+  APP_VERSION = RELEASES[0].version;
+  if (VIEW === 'settings') render();
+  const seen = S.seenVersion;
+  if (seen === APP_VERSION) return;
+  const isExistingUser = S.shifts.length || S.rates.length;
+  const unseen = seen ? RELEASES.filter(r => compareVersions(r.version, seen) > 0) : isExistingUser ? [RELEASES[0]] : [];
+  S.seenVersion = APP_VERSION;
+  await save().catch(() => {});
+  if (unseen.length && !$('#dlg').open) showReleaseNotes(unseen, 'What’s new');
+}
+
 /* ================= Start ================= */
 
 (async function start() {
@@ -963,6 +1054,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) rend
     toast('Could not open storage: ' + e.message);
   }
   render();
+  checkWhatsNew();
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

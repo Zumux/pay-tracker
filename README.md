@@ -4,6 +4,13 @@
 
 A small app for tracking work shifts, pay rates and pay periods. It runs on Android and iPhone as an installable web app (PWA). All data is stored on the phone, works offline, and can be exported and imported as files.
 
+> **⚠️ Made with AI.** This app was written with the help of an AI assistant (Claude, by Anthropic). It has not been professionally reviewed or audited. Treat its numbers as a personal tracking aid, not an official record:
+> - Check hours, pay and pay dates against your actual pay stubs, especially at first.
+> - Estimated net pay is a rough percentage, not a real tax calculation.
+> - The stat holiday lists may be incomplete or out of date for your province or employer.
+> - It is not financial, tax or legal advice.
+> - Keep regular backups; there's no guarantee against bugs or data loss.
+
 ## Features
 
 - **Timesheet**: date, start time, end time, hours and pay for each shift. Hours and pay are calculated automatically. Overnight shifts (ending after midnight) are handled. Shifts are grouped by pay period.
@@ -50,7 +57,7 @@ When a paycheque arrives, open Pay Periods → tap the period → **Record actua
 | `sw.js` | Service worker that makes the app work offline |
 | `manifest.webmanifest` | App name, colours and icons used when installing |
 | `icons/` | App icons |
-| `CHANGELOG.md` | History of changes |
+| `CHANGELOG.md` | History of changes; also the source of the app's version number and "What's new" popup |
 
 ## Putting it online
 
@@ -97,8 +104,8 @@ The files must be served over HTTPS for the app to install. Either free option w
 The app is hosted on GitHub Pages from the `main` branch of <https://github.com/Zumux/pay-tracker>.
 
 1. Edit the files.
-2. In `sw.js`, bump the version in `const CACHE = 'pay-tracker-v3'` (e.g. to `v4`). **Without this, phones keep showing the old version.**
-3. Add an entry to [CHANGELOG.md](CHANGELOG.md).
+2. In `sw.js`, bump the version in `const CACHE = 'pay-tracker-v4'` (e.g. to `v5`). **Without this, phones keep showing the old version.**
+3. Add a release section to [CHANGELOG.md](CHANGELOG.md), e.g. `## [1.2.0] - 2026-11-01`, written for the person using the app. The app reads this file to get its version number and shows the new section once in a **What's new** popup after the update. A fix that doesn't need a popup can go under `## [Unreleased]` instead.
 4. Commit and push:
    ```
    git add -A

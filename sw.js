@@ -1,12 +1,13 @@
 // Offline support: serves the app from cache. Bump CACHE whenever you change any app file
 // so phones pick up the new version (it applies the next time the app is opened).
-const CACHE = 'pay-tracker-v3';
+const CACHE = 'pay-tracker-v4';
 const FILES = [
   './',
   './index.html',
   './styles.css',
   './app.js',
   './manifest.webmanifest',
+  './CHANGELOG.md',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',
