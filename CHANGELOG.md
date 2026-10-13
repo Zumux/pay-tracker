@@ -8,6 +8,12 @@ When releasing a change, add an entry here and bump the cache version in `sw.js`
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-12 (sw cache `pay-tracker-v5`)
+
+### Fixed
+- Updates could install with leftover copies of old files, so new features (like ⚙ → About) didn't appear. Updates now always download fresh files.
+- Updates now apply as soon as they've downloaded. The app reloads itself once, instead of waiting until the next time you open it. It also checks for updates when you switch back to it.
+
 ## [1.1.0] - 2026-10-12 (sw cache `pay-tracker-v4`)
 
 ### Added

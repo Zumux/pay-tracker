@@ -1056,5 +1056,15 @@ async function checkWhatsNew() {
   render();
   checkWhatsNew();
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if ('serviceWorker' in navigator) {
+    // When an update finishes installing, reload so it shows now instead of on the next open.
+    // Skipped on first install (no previous controller) and while a form is open.
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hadController && !$('#dlg').open) location.reload();
+    });
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+    }).catch(() => {});
+  }
 })();

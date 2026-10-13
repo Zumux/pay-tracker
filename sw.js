@@ -1,6 +1,6 @@
 // Offline support: serves the app from cache. Bump CACHE whenever you change any app file
-// so phones pick up the new version (it applies the next time the app is opened).
-const CACHE = 'pay-tracker-v4';
+// so phones pick up the new version (the app reloads itself once the update has downloaded).
+const CACHE = 'pay-tracker-v5';
 const FILES = [
   './',
   './index.html',
@@ -13,8 +13,10 @@ const FILES = [
   './icons/apple-touch-icon.png',
 ];
 
+// cache: 'reload' skips the browser's HTTP cache (GitHub Pages allows 10 minutes),
+// so a new version never gets stored with stale copies of the old files.
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' })))));
   self.skipWaiting();
 });
 

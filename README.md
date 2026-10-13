@@ -104,7 +104,7 @@ The files must be served over HTTPS for the app to install. Either free option w
 The app is hosted on GitHub Pages from the `main` branch of <https://github.com/Zumux/pay-tracker>.
 
 1. Edit the files.
-2. In `sw.js`, bump the version in `const CACHE = 'pay-tracker-v4'` (e.g. to `v5`). **Without this, phones keep showing the old version.**
+2. In `sw.js`, bump the version in `const CACHE = 'pay-tracker-v5'` (e.g. to `v6`). **Without this, phones keep showing the old version.**
 3. Add a release section to [CHANGELOG.md](CHANGELOG.md), e.g. `## [1.2.0] - 2026-11-01`, written for the person using the app. The app reads this file to get its version number and shows the new section once in a **What's new** popup after the update. A fix that doesn't need a popup can go under `## [Unreleased]` instead.
 4. Commit and push:
    ```
@@ -114,7 +114,7 @@ The app is hosted on GitHub Pages from the `main` branch of <https://github.com/
    ```
    GitHub Pages republishes automatically within a minute or two.
 
-Phones pick up the update the next time the app is opened (sometimes it takes a second open). Data is not affected.
+When the app is opened (or switched back to), it checks for an update, downloads it in the background, and reloads itself once it's ready, usually within a few seconds. Data is not affected.
 
 ## Testing locally
 
