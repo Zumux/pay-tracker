@@ -50,6 +50,7 @@ When a paycheque arrives, open Pay Periods → tap the period → **Record actua
 | `sw.js` | Service worker that makes the app work offline |
 | `manifest.webmanifest` | App name, colours and icons used when installing |
 | `icons/` | App icons |
+| `CHANGELOG.md` | History of changes |
 
 ## Putting it online
 
@@ -97,7 +98,8 @@ The app is hosted on GitHub Pages from the `main` branch of <https://github.com/
 
 1. Edit the files.
 2. In `sw.js`, bump the version in `const CACHE = 'pay-tracker-v3'` (e.g. to `v4`). **Without this, phones keep showing the old version.**
-3. Commit and push:
+3. Add an entry to [CHANGELOG.md](CHANGELOG.md).
+4. Commit and push:
    ```
    git add -A
    git commit -m "Describe the change"
