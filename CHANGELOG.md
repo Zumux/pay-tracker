@@ -8,6 +8,16 @@ When releasing a change, add an entry here and bump the cache version in `sw.js`
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-18 (sw cache `pay-tracker-v8`)
+
+### Added
+- **Reports tab** (📊), with:
+  - **Hours worked**: choose a From *and* To date, or tap a quick range (This week, Last week, This month, Last month, Last 30 days, This year). It shows hours, days worked, gross pay and average hours per day worked.
+  - **Weekly totals**: every week's hours, days and pay, with a bar for each week and your average week over the last 12 full weeks. Choose whether weeks run Mon–Sun or Sun–Sat.
+
+### Changed
+- "Hours since" moved from Pay Periods to the new Reports tab, and now has an end date. Your saved start date carries over.
+
 ## [1.2.1] - 2026-10-18 (sw cache `pay-tracker-v7`)
 
 ### Fixed

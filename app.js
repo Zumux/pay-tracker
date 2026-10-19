@@ -34,7 +34,7 @@ const EMPTY = () => ({
   shifts: [],
   rates: [],
   actualNet: {}, // period start (yyyy-mm-dd) → net pay actually received
-  settings: { deductionPct: 20, timeFormat: '12', province: '', customHolidays: [], sinceDate: '' },
+  settings: { deductionPct: 20, timeFormat: '12', province: '', customHolidays: [], rangeFrom: '', rangeTo: '', weekStart: 1 },
   lastBackup: null,
   seenVersion: null, // last release whose "What's new" notes were shown
 });
@@ -85,7 +85,10 @@ function normalize(raw) {
   if (pct >= 0 && pct < 100) s.settings.deductionPct = pct;
   const set = raw.settings || {};
   if (set.timeFormat === '24') s.settings.timeFormat = '24';
-  if (isYmd(set.sinceDate)) s.settings.sinceDate = set.sinceDate;
+  const from = set.rangeFrom || set.sinceDate; // sinceDate was the 1.2.x name
+  if (isYmd(from)) s.settings.rangeFrom = from;
+  if (isYmd(set.rangeTo)) s.settings.rangeTo = set.rangeTo;
+  if (set.weekStart === 0) s.settings.weekStart = 0;
   if (Object.prototype.hasOwnProperty.call(PROVINCES, set.province)) s.settings.province = set.province;
   s.settings.customHolidays = (Array.isArray(set.customHolidays) ? set.customHolidays : [])
     .filter(h => h && isYmd(h.date))
@@ -326,8 +329,8 @@ function render() {
   const periods = computePeriods();
   renderSummary(periods);
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.view === VIEW));
-  $('#fab').hidden = VIEW === 'periods' || VIEW === 'settings';
-  const html = { timesheet: timesheetHtml, periods: periodsHtml, rates: ratesHtml, settings: settingsHtml }[VIEW](periods);
+  $('#fab').hidden = VIEW === 'periods' || VIEW === 'reports' || VIEW === 'settings';
+  const html = { timesheet: timesheetHtml, periods: periodsHtml, reports: reportsHtml, rates: ratesHtml, settings: settingsHtml }[VIEW](periods);
   $('#view').innerHTML = html;
   if (VIEW === 'settings') refreshStorageStatus();
 }
@@ -384,34 +387,129 @@ function timesheetHtml(periods) {
     <div class="card">${p.shifts.map(s => shiftRow(s, true)).join('')}</div>`).join('');
 }
 
-// Hours worked from a chosen date through today (inclusive). The date is remembered.
-function sinceCardHtml() {
-  if (!S.shifts.length) return '';
-  const t = today(), since = S.settings.sinceDate;
-  let body = '<div class="meta" style="margin-top:8px">Pick a date to see the hours you’ve worked from then until today.</div>';
-  if (since) {
-    const list = S.shifts.filter(s => s.date >= since && s.date <= t);
-    const hours = round2(list.reduce((n, s) => n + shiftHours(s), 0));
-    const pay = round2(list.reduce((n, s) => n + shiftPay(s), 0));
-    const days = new Set(list.map(s => s.date)).size;
-    body = since > t
-      ? '<div class="meta" style="margin-top:8px">That date is in the future.</div>'
-      : `
-        <div class="stats">
-          <div class="stat"><div class="lbl">Hours</div><div class="val">${hrs(hours)}</div></div>
-          <div class="stat"><div class="lbl">Days worked</div><div class="val">${days}</div></div>
-          <div class="stat"><div class="lbl">Gross pay</div><div class="val">${money(pay)}</div></div>
-        </div>
-        <div class="meta" style="margin-top:8px">${esc(fmtLong(since))} – today · ${list.length} shift${list.length === 1 ? '' : 's'}</div>`;
+/* ================= Reports ================= */
+
+// Start of the week containing ymd, using the chosen first day (1 = Monday, 0 = Sunday).
+function weekStartOf(ymd) {
+  return addDays(ymd, -((toDate(ymd).getDay() - S.settings.weekStart + 7) % 7));
+}
+
+function totalsFor(list) {
+  return {
+    hours: round2(list.reduce((n, s) => n + shiftHours(s), 0)),
+    pay: round2(list.reduce((n, s) => n + shiftPay(s), 0)),
+    days: new Set(list.map(s => s.date)).size,
+    shifts: list.length,
+  };
+}
+
+// Quick ranges for the Hours worked card. An empty end date means "today" and moves forward each day.
+function rangePreset(name) {
+  const t = today(), [y, m] = t.split('-').map(Number);
+  const thisWeek = weekStartOf(t);
+  const prevMonthEnd = addDays(`${y}-${pad(m)}-01`, -1);
+  return {
+    thisWeek: [thisWeek, ''],
+    lastWeek: [addDays(thisWeek, -7), addDays(thisWeek, -1)],
+    thisMonth: [`${y}-${pad(m)}-01`, ''],
+    lastMonth: [prevMonthEnd.slice(0, 8) + '01', prevMonthEnd],
+    last30: [addDays(t, -29), ''],
+    thisYear: [`${y}-01-01`, ''],
+  }[name];
+}
+
+const PRESETS = [['thisWeek', 'This week'], ['lastWeek', 'Last week'], ['thisMonth', 'This month'], ['lastMonth', 'Last month'], ['last30', 'Last 30 days'], ['thisYear', 'This year']];
+
+function rangeCardHtml() {
+  const t = today(), from = S.settings.rangeFrom, rangeTo = S.settings.rangeTo;
+  const to = rangeTo || t;
+  const active = PRESETS.find(([k]) => { const [f, e] = rangePreset(k); return f === from && e === rangeTo; });
+  let body = '<div class="meta" style="margin-top:10px">Pick a start date, or tap a quick range.</div>';
+  if (from && from > to) body = '<div class="meta" style="margin-top:10px">The start date is after the end date.</div>';
+  else if (from) {
+    const r = totalsFor(S.shifts.filter(s => s.date >= from && s.date <= to));
+    body = `
+      <div class="stats">
+        <div class="stat"><div class="lbl">Hours</div><div class="val">${hrs(r.hours)}</div></div>
+        <div class="stat"><div class="lbl">Days worked</div><div class="val">${r.days}</div></div>
+        <div class="stat"><div class="lbl">Gross pay</div><div class="val">${money(r.pay)}</div></div>
+      </div>
+      <div class="meta" style="margin-top:8px">
+        ${esc(fmtLong(from))} – ${rangeTo ? esc(fmtLong(rangeTo)) : 'today'} · ${r.shifts} shift${r.shifts === 1 ? '' : 's'}${r.days ? ` · ${hrs(r.hours / r.days)} h per day worked` : ''}
+      </div>`;
   }
   return `
-    <div class="card period since-card">
-      <div class="period-top">
-        <div class="period-title">Hours since</div>
-        <input id="sinceDate" type="date" value="${since}" max="${t}" aria-label="Start date">
+    <div class="card panel">
+      <h3>Hours worked</h3>
+      <div class="two">
+        <div><label for="rangeFrom">From</label><input id="rangeFrom" type="date" value="${from}"></div>
+        <div><label for="rangeTo">To</label><input id="rangeTo" type="date" value="${to}"></div>
+      </div>
+      <div class="chips">
+        ${PRESETS.map(([k, label]) => `<button class="chip ${active && active[0] === k ? 'on' : ''}" type="button" data-preset="${k}">${label}</button>`).join('')}
+        ${rangeTo ? '<button class="chip" type="button" data-action="rangeToday">End: today</button>' : ''}
       </div>
       ${body}
     </div>`;
+}
+
+let showAllWeeks = false;
+
+// Every week from your first shift to now, including weeks with no shifts. Newest first.
+function computeWeeks() {
+  if (!S.shifts.length) return [];
+  const byWeek = new Map();
+  for (const s of S.shifts) {
+    const k = weekStartOf(s.date);
+    if (!byWeek.has(k)) byWeek.set(k, []);
+    byWeek.get(k).push(s);
+  }
+  const dates = S.shifts.map(s => s.date).sort();
+  const lastDate = dates[dates.length - 1] > today() ? dates[dates.length - 1] : today();
+  const weeks = [];
+  for (let k = weekStartOf(dates[0]); k <= weekStartOf(lastDate); k = addDays(k, 7)) {
+    weeks.push({ start: k, end: addDays(k, 6), ...totalsFor(byWeek.get(k) || []) });
+  }
+  return weeks.reverse();
+}
+
+function weeksCardHtml() {
+  const weeks = computeWeeks();
+  if (!weeks.length) return '';
+  const current = weekStartOf(today());
+  const worked = weeks.filter(w => w.start < current).slice(0, 12).filter(w => w.hours > 0); // last 12 full weeks
+  const avg = worked.length ? worked.reduce((n, w) => n + w.hours, 0) / worked.length : 0;
+  const shown = showAllWeeks ? weeks : weeks.slice(0, 12);
+  const max = Math.max(...shown.map(w => w.hours), 1);
+  const label = w => `${fmtShort(w.start)} – ${w.start.slice(5, 7) === w.end.slice(5, 7) ? toDate(w.end).getDate() : fmtShort(w.end)}`;
+  return `
+    <div class="card panel">
+      <div class="period-top">
+        <h3>Weekly totals</h3>
+        <div class="seg" role="group" aria-label="Week starts on">
+          <button type="button" class="${S.settings.weekStart === 1 ? 'on' : ''}" data-action="weekMon">Mon–Sun</button>
+          <button type="button" class="${S.settings.weekStart === 0 ? 'on' : ''}" data-action="weekSun">Sun–Sat</button>
+        </div>
+      </div>
+      <p>${!worked.length ? 'No full weeks with shifts in the last 12 weeks.'
+        : worked.length === 12 ? `Average <b>${hrs(avg)} h</b> a week over the last 12 full weeks.`
+        : `Average <b>${hrs(avg)} h</b> a week over the ${worked.length} week${worked.length === 1 ? '' : 's'} you worked in the last 12 full weeks (weeks off aren’t counted).`}</p>
+      ${shown.map(w => `
+        <div class="week">
+          <div class="week-top">
+            <span class="main-t">${esc(label(w))}${w.start === current ? ' <span class="badge b-now">This week</span>' : ''}</span>
+            <span class="num main-t">${hrs(w.hours)} h</span>
+          </div>
+          <div class="bar-track"><div class="bar" style="width:${(w.hours / max) * 100}%"></div></div>
+          <div class="meta">${w.days} day${w.days === 1 ? '' : 's'} · ${money(w.pay)}</div>
+        </div>`).join('')}
+      ${weeks.length > 12 ? `<button class="btn full" type="button" data-action="weeksAll">${showAllWeeks ? 'Show last 12 weeks' : `Show all ${weeks.length} weeks`}</button>` : ''}
+    </div>`;
+}
+
+function reportsHtml() {
+  if (!S.shifts.length) return '<div class="empty">No shifts yet.<br>Reports appear once you add or import shifts.</div>';
+  return rangeCardHtml() + weeksCardHtml();
 }
 
 let YEAR = null;
@@ -454,7 +552,7 @@ function yearCardHtml(periods) {
 }
 
 function periodsHtml(periods) {
-  return sinceCardHtml() + yearCardHtml(periods) + periods.map(p => {
+  return yearCardHtml(periods) + periods.map(p => {
     const [label, cls] = periodStatus(p);
     const moved = p.payDate !== p.scheduled ? ` <span class="meta">(moved from ${esc(fmtDay(p.scheduled))}, ${esc(p.moveReason)})</span>` : '';
     const actualNote = p.actual
@@ -969,6 +1067,9 @@ $('#view').addEventListener('click', ev => {
       return commit();
     }
     if (a === 'actual') return openActual(action.dataset.start);
+    if (a === 'rangeToday') { S.settings.rangeTo = ''; return commit(); }
+    if (a === 'weekMon' || a === 'weekSun') { S.settings.weekStart = a === 'weekMon' ? 1 : 0; return commit(); }
+    if (a === 'weeksAll') { showAllWeeks = !showAllWeeks; return render(); }
     if (a === 'whatsNew') return RELEASES.length ? showReleaseNotes(RELEASES.slice(0, 3), 'What’s new') : toast('Release notes are not available right now.');
     if (a === 'yearPrev' || a === 'yearNext') {
       YEAR = String(Number(YEAR) + (a === 'yearNext' ? 1 : -1));
@@ -997,6 +1098,11 @@ $('#view').addEventListener('click', ev => {
       return commit('Deductions saved');
     }
   }
+  const preset = ev.target.closest('[data-preset]');
+  if (preset) {
+    [S.settings.rangeFrom, S.settings.rangeTo] = rangePreset(preset.dataset.preset);
+    return commit();
+  }
   const shift = ev.target.closest('[data-shift]');
   if (shift) return openShift(S.shifts.find(s => s.id === shift.dataset.shift));
   const rate = ev.target.closest('[data-rate]');
@@ -1013,8 +1119,10 @@ $('#view').addEventListener('change', ev => {
   if (ev.target.id === 'province') {
     S.settings.province = ev.target.value;
     commit('Province saved');
-  } else if (ev.target.id === 'sinceDate') {
-    S.settings.sinceDate = isYmd(ev.target.value) ? ev.target.value : '';
+  } else if (ev.target.id === 'rangeFrom' || ev.target.id === 'rangeTo') {
+    const v = isYmd(ev.target.value) ? ev.target.value : '';
+    if (ev.target.id === 'rangeFrom') S.settings.rangeFrom = v;
+    else S.settings.rangeTo = v === today() ? '' : v; // picking today keeps the end moving with today
     commit();
   }
 });
