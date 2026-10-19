@@ -1,6 +1,6 @@
 // Offline support: serves the app from cache. Bump CACHE whenever you change any app file
 // so phones pick up the new version (the app reloads itself once the update has downloaded).
-const CACHE = 'pay-tracker-v10';
+const CACHE = 'pay-tracker-v11';
 const FILES = [
   './',
   './index.html',

@@ -34,7 +34,7 @@ const EMPTY = () => ({
   shifts: [],
   rates: [],
   actualNet: {}, // period start (yyyy-mm-dd) → net pay actually received
-  settings: { deductionPct: 20, timeFormat: '12', province: '', customHolidays: [], rangeFrom: '', rangeTo: '', weekStart: 1, clockRound: 15 },
+  settings: { deductionPct: 20, timeFormat: '12', province: '', customHolidays: [], rangeFrom: '', rangeTo: '', weekStart: 1, clockRound: 15, clockBonus: 30 },
   clockIn: null, // { at: actual ISO time, date, start: rounded } while clocked in
   lastBackup: null,
   seenVersion: null, // last release whose "What's new" notes were shown
@@ -91,8 +91,11 @@ function normalize(raw) {
   if (isYmd(set.rangeTo)) s.settings.rangeTo = set.rangeTo;
   if (set.weekStart === 0) s.settings.weekStart = 0;
   if ([0, 5, 15].includes(set.clockRound)) s.settings.clockRound = set.clockRound;
+  if (CLOCK_BONUS_OPTIONS.includes(set.clockBonus)) s.settings.clockBonus = set.clockBonus;
   const c = raw.clockIn;
-  if (c && isYmd(c.date) && isHm(c.start) && !isNaN(Date.parse(c.at))) s.clockIn = { at: c.at, date: c.date, start: c.start };
+  if (c && isYmd(c.date) && isHm(c.start) && !isNaN(Date.parse(c.at))) {
+    s.clockIn = { at: c.at, date: c.date, start: c.start, bonus: Number(c.bonus) > 0 ? Number(c.bonus) : 0 };
+  }
   if (Object.prototype.hasOwnProperty.call(PROVINCES, set.province)) s.settings.province = set.province;
   s.settings.customHolidays = (Array.isArray(set.customHolidays) ? set.customHolidays : [])
     .filter(h => h && isYmd(h.date))
@@ -415,11 +418,12 @@ function clockCardHtml() {
       </div>`;
   }
   const actual = hmOf(new Date(c.at));
+  const how = [actual !== c.start || c.bonus ? `tapped at ${fmtTime(actual)}` : '', c.bonus ? `+${c.bonus} min paid` : ''].filter(Boolean).join(', ');
   return `
     <div class="card clock on">
       <div>
         <div class="main-t">Clocked in · <span id="clockElapsed">${elapsedText()}</span></div>
-        <div class="meta">Started ${esc(fmtTime(c.start))}${c.date !== today() ? ' on ' + esc(fmtDay(c.date)) : ''}${actual !== c.start ? ` (tapped at ${esc(fmtTime(actual))})` : ''}</div>
+        <div class="meta">Shift starts ${esc(fmtTime(c.start))}${c.date !== today() ? ' on ' + esc(fmtDay(c.date)) : ''}${how ? ` (${esc(how)})` : ''}</div>
         <div class="meta" id="clockPreview">${clockPreviewText()}</div>
       </div>
       <div class="clock-actions">
@@ -434,10 +438,17 @@ function clockPreviewText() {
   return p.hours > 0 ? `Clocking out now records ${esc(fmtTime(hmOf(p.end)))} · ${hrs(p.hours)} h` : 'Clocking out now would record 0 hours.';
 }
 
+const CLOCK_BONUS_OPTIONS = [0, 15, 30, 45, 60];
+
+// Rounds the tap time, then moves the start earlier by the extra paid time,
+// but only for the first shift of the day (a second clock-in that day gets no extra).
 function clockIn() {
-  const at = new Date(), start = roundMoment(at, S.settings.clockRound);
-  S.clockIn = { at: at.toISOString(), date: ymdOf(start), start: hmOf(start) };
-  commit(`Clocked in at ${fmtTime(S.clockIn.start)}`);
+  const at = new Date(), rounded = roundMoment(at, S.settings.clockRound);
+  const firstToday = !S.shifts.some(s => s.date === ymdOf(rounded));
+  const bonus = firstToday ? S.settings.clockBonus : 0;
+  const start = new Date(rounded.getTime() - bonus * 60000);
+  S.clockIn = { at: at.toISOString(), date: ymdOf(start), start: hmOf(start), bonus };
+  commit(`Clocked in · shift starts ${fmtTime(S.clockIn.start)}${bonus ? ` (includes ${bonus} min extra)` : ''}`);
 }
 
 function clockOut() {
@@ -715,6 +726,11 @@ function settingsHtml() {
       <p>Clock-in and clock-out times round to the nearest step, e.g. with 15 minutes, 7:23 becomes 7:30 and 7:22 becomes 7:15.</p>
       <div class="seg" role="group" aria-label="Rounding">
         ${[[0, 'Off'], [5, '5 min'], [15, '15 min']].map(([v, l]) => `<button type="button" class="${S.settings.clockRound === v ? 'on' : ''}" data-action="round${v}">${l}</button>`).join('')}
+      </div>
+      <label>Extra paid time at clock-in</label>
+      <p style="margin-top:0">Added to the start of your first shift each day when you clock in. With 30 minutes, clocking in at 7:23 rounds to 7:30 and the shift starts at 7:00. Shifts added with <b>+</b> aren’t changed.</p>
+      <div class="seg" role="group" aria-label="Extra paid time">
+        ${CLOCK_BONUS_OPTIONS.map(v => `<button type="button" class="${S.settings.clockBonus === v ? 'on' : ''}" data-action="bonus${v}">${v ? v + ' min' : 'None'}</button>`).join('')}
       </div>
     </div>
 
@@ -1179,6 +1195,10 @@ $('#view').addEventListener('click', ev => {
     }
     if (a.startsWith('round')) {
       S.settings.clockRound = Number(a.slice(5));
+      return commit();
+    }
+    if (a.startsWith('bonus')) {
+      S.settings.clockBonus = Number(a.slice(5));
       return commit();
     }
     if (a === 'whatsNew') return RELEASES.length ? showReleaseNotes(RELEASES.slice(0, 3), 'What’s new') : toast('Release notes are not available right now.');

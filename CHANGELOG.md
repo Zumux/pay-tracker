@@ -8,6 +8,12 @@ When releasing a change, add an entry here and bump the cache version in `sw.js`
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-18 (sw cache `pay-tracker-v11`)
+
+### Added
+- **30 extra paid minutes at clock-in.** When you clock in, your shift now starts 30 minutes earlier to include the extra paid time, e.g. clocking in at 7:23 rounds to 7:30 and the shift starts at 7:00. It only applies to your first clock-in of the day.
+- Change the amount (none, 15, 30, 45 or 60 minutes) in ⚙ → Clock in / out rounding. Shifts added with **+** are not changed.
+
 ## [1.4.0] - 2026-10-18 (sw cache `pay-tracker-v10`)
 
 ### Added
