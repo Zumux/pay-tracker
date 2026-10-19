@@ -740,7 +740,7 @@ function toast(msg) {
   t.textContent = msg;
   t.style.display = 'block';
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => (t.style.display = 'none'), 3500);
+  toast.timer = setTimeout(() => (t.style.display = 'none'), Math.max(3500, msg.length * 60)); // longer messages stay up longer
 }
 
 /* ================= Export ================= */
@@ -823,6 +823,11 @@ function makeYmd(y, m, d) {
 }
 
 // Accepts 2026-01-05, 2026/01/05, 1/5/2026 (month first unless the first number is over 12), or anything Date can parse.
+// Also accepts month names: "March 2", "Mar 2, 2026", "Mon, March 2", "2 March 2026".
+// A date with no year gets the most recent year that doesn't put it in the future; guessedYears records which.
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const guessedYears = new Set();
+
 function looseDate(s) {
   s = String(s).trim();
   let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
@@ -832,8 +837,19 @@ function looseDate(s) {
     const a = +m[1], b = +m[2], y = +m[3] < 100 ? +m[3] + 2000 : +m[3];
     return a > 12 ? makeYmd(y, b, a) : makeYmd(y, a, b);
   }
-  const t = Date.parse(s);
-  return isNaN(t) ? '' : ymdOf(new Date(t));
+  s = s.replace(/^(mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?,?\s+/i, '');
+  let month, day, year;
+  if ((m = s.match(/^([a-z]{3,})\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?\b/i))) [, month, day, year] = m;
+  else if ((m = s.match(/^(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]{3,})\.?(?:,?\s+(\d{4}))?\b/i))) [, day, month, year] = m;
+  else return '';
+  const mi = MONTHS.indexOf(month.slice(0, 3).toLowerCase()) + 1;
+  if (!mi) return '';
+  if (year) return makeYmd(+year, mi, +day);
+  const t = today(), y = +t.slice(0, 4);
+  let date = makeYmd(y, mi, +day);
+  if (!date || date > t) date = makeYmd(y - 1, mi, +day);
+  if (date) guessedYears.add(date.slice(0, 4));
+  return date;
 }
 
 // Accepts 09:00, 9:00:00, 9:00 AM, 9:00:00 p.m., or a date-time ending in a time.
@@ -854,32 +870,45 @@ function importCsv(text) {
   const iDate = col('date'), iStart = col('start'), iEnd = col('end'), iRate = col('rate');
   if (col('period') >= 0) throw new Error('Pay periods are calculated automatically. Import the Timesheet and Pay Rates CSVs instead.');
   if (iDate < 0) throw new Error('Could not find a Date column in that CSV.');
-  let added = 0, skipped = 0;
+  let added = 0, duplicates = 0, bad = 0, firstBad = '';
+  guessedYears.clear();
+  const reject = (i, why) => { bad++; firstBad = firstBad || `row ${i + 2}: ${why}`; };
+  const summary = noun => {
+    const parts = [`Imported ${added} ${noun}${added === 1 ? '' : 's'}.`];
+    if (duplicates) parts.push(`${duplicates} already in the app.`);
+    if (bad) parts.push(`${bad} couldn't be read (e.g. ${firstBad}).`);
+    if (guessedYears.size) parts.push(`Dates had no year, so ${[...guessedYears].sort().join(' and ')} was assumed.`);
+    return parts.join(' ');
+  };
 
   if (iStart >= 0 && iEnd >= 0) {
     const seen = new Set(S.shifts.map(s => `${s.date}|${s.start}|${s.end}`));
-    for (const r of rows.slice(1)) {
-      const s = { date: looseDate(r[iDate] || ''), start: looseTime(r[iStart] || ''), end: looseTime(r[iEnd] || '') };
+    rows.slice(1).forEach((r, i) => {
+      const raw = [r[iDate] || '', r[iStart] || '', r[iEnd] || ''];
+      const s = { date: looseDate(raw[0]), start: looseTime(raw[1]), end: looseTime(raw[2]) };
+      if (!s.date) return reject(i, `date "${raw[0]}"`);
+      if (!s.start || !s.end) return reject(i, `time "${!s.start ? raw[1] : raw[2]}"`);
       const key = `${s.date}|${s.start}|${s.end}`;
-      if (!s.date || !s.start || !s.end || seen.has(key)) { skipped++; continue; }
+      if (seen.has(key)) { duplicates++; return; }
       seen.add(key);
       S.shifts.push({ id: uid(), ...s });
       added++;
-    }
-    return `Imported ${added} shift${added === 1 ? '' : 's'}` + (skipped ? `, skipped ${skipped}` : '');
+    });
+    return summary('shift');
   }
 
   if (iRate >= 0) {
-    for (const r of rows.slice(1)) {
+    rows.slice(1).forEach((r, i) => {
       const date = looseDate(r[iDate] || '');
       const rate = round2(parseFloat(String(r[iRate] || '').replace(/[^0-9.]/g, '')));
-      if (!date || !(rate > 0)) { skipped++; continue; }
+      if (!date) return reject(i, `date "${r[iDate] || ''}"`);
+      if (!(rate > 0)) return reject(i, `rate "${r[iRate] || ''}"`);
       const existing = S.rates.find(x => x.date === date);
       if (existing) existing.rate = rate;
       else S.rates.push({ id: uid(), date, rate });
       added++;
-    }
-    return `Imported ${added} pay rate${added === 1 ? '' : 's'}` + (skipped ? `, skipped ${skipped}` : '');
+    });
+    return summary('pay rate');
   }
 
   throw new Error('Could not tell what that CSV is. It needs Date, Start and End columns, or Date and Rate columns.');

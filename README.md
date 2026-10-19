@@ -96,6 +96,8 @@ The files must be served over HTTPS for the app to install. Either free option w
 - Export: Timesheet, Pay Periods (including estimated and actual net) and Pay Rates as CSV files for Excel or Google Sheets.
 - Import: a CSV with **Date, Start, End** columns adds shifts; one with **Date, Rate** columns adds pay rates. Columns are matched by name, duplicate shifts are skipped, and a rate with the same date as an existing one replaces it.
 - Dates like `2026-03-04` work best. A date like `3/4/2026` is read as month/day (March 4), unless the first number is over 12.
+- Month names work too: `March 4`, `Mar 4, 2026`, `Wed, March 4`, `4 March 2026`. If a date has **no year**, the most recent past occurrence is assumed (e.g. `March 4` imported in October 2026 becomes 2026-03-04, but `December 20` becomes 2025-12-20). The import message tells you when it did this.
+- If rows are skipped, the message shows the first problem row so you can fix it in the sheet.
 - Times like `09:00`, `9:00 AM` or `9:00:00 PM` are all accepted.
 
 **Moving data from the old Google Sheet:** open the Timesheet tab → *File → Download → Comma-separated values (.csv)*, then do the same for the Pay Rates tab, then import both files in the app.
@@ -105,7 +107,7 @@ The files must be served over HTTPS for the app to install. Either free option w
 The app is hosted on GitHub Pages from the `main` branch of <https://github.com/Zumux/pay-tracker>.
 
 1. Edit the files.
-2. In `sw.js`, bump the version in `const CACHE = 'pay-tracker-v6'` (e.g. to `v7`). **Without this, phones keep showing the old version.**
+2. In `sw.js`, bump the version in `const CACHE = 'pay-tracker-v7'` (e.g. to `v8`). **Without this, phones keep showing the old version.**
 3. Add a release section to [CHANGELOG.md](CHANGELOG.md), e.g. `## [1.2.0] - 2026-11-01`, written for the person using the app. The app reads this file to get its version number and shows the new section once in a **What's new** popup after the update. A fix that doesn't need a popup can go under `## [Unreleased]` instead.
 4. Commit and push:
    ```

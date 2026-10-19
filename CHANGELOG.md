@@ -8,6 +8,12 @@ When releasing a change, add an entry here and bump the cache version in `sw.js`
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-10-18 (sw cache `pay-tracker-v7`)
+
+### Fixed
+- **CSV import** now understands dates written with month names, like `March 2` or `Mar 2, 2026`. Dates without a year are given the most recent past year, and the import message says so.
+- Import messages now separate shifts that were already in the app from rows that couldn't be read, and show an example of a problem row.
+
 ## [1.2.0] - 2026-10-18 (sw cache `pay-tracker-v6`)
 
 ### Added
