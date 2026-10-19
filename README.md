@@ -17,7 +17,7 @@ A small app for tracking work shifts, pay rates and pay periods. It runs on Andr
 - **Pay Periods**: period start, period end, pay date, hours, gross pay and estimated net pay. Tap a period to see its shifts and record the pay you actually received.
 - **Reports**:
   - *Hours worked*: pick a From and To date (or tap a quick range like This month or Last 30 days) to see hours, days worked, gross pay and average hours per day worked. Leaving To on today keeps it moving forward each day. Both dates are remembered.
-  - *Weekly totals*: hours, days and pay for every week since your first shift, with a bar for each week and your average over the last 12 full weeks (weeks off aren't counted). Weeks can run Mon–Sun or Sun–Sat.
+  - *Weekly totals*: hours, days worked, average hours per day worked and pay for every week since your first shift, with a bar for each week and your average over the last 12 full weeks (weeks off aren't counted). Weeks can run Mon–Sun or Sun–Sat.
 - **Year to date**: the top card on Pay Periods shows hours, gross and net paid in the year, with ‹ › to view other years. Income is counted by **pay date**, the same way your T4 counts it (so work from Dec 16–31 counts toward the next year). Net uses your recorded pay where you've entered it, and estimates otherwise.
 - **Pay Rates**: hourly rates with the date they take effect. Each shift uses the rate in effect on its date, so adding a raise (even backdated) updates all pay automatically.
 - **Backup & settings** (⚙ button): export/import a backup, CSV exports, 12/24-hour time, estimated deductions %, province for stat holidays, extra holidays.
@@ -109,7 +109,7 @@ The files must be served over HTTPS for the app to install. Either free option w
 The app is hosted on GitHub Pages from the `main` branch of <https://github.com/Zumux/pay-tracker>.
 
 1. Edit the files.
-2. In `sw.js`, bump the version in `const CACHE = 'pay-tracker-v8'` (e.g. to `v9`). **Without this, phones keep showing the old version.**
+2. In `sw.js`, bump the version in `const CACHE = 'pay-tracker-v9'` (e.g. to `v10`). **Without this, phones keep showing the old version.**
 3. Add a release section to [CHANGELOG.md](CHANGELOG.md), e.g. `## [1.2.0] - 2026-11-01`, written for the person using the app. The app reads this file to get its version number and shows the new section once in a **What's new** popup after the update. A fix that doesn't need a popup can go under `## [Unreleased]` instead.
 4. Commit and push:
    ```

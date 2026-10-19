@@ -501,7 +501,7 @@ function weeksCardHtml() {
             <span class="num main-t">${hrs(w.hours)} h</span>
           </div>
           <div class="bar-track"><div class="bar" style="width:${(w.hours / max) * 100}%"></div></div>
-          <div class="meta">${w.days} day${w.days === 1 ? '' : 's'} · ${money(w.pay)}</div>
+          <div class="meta">${w.days} day${w.days === 1 ? '' : 's'}${w.days ? ` · ${hrs(w.hours / w.days)} h/day` : ''} · ${money(w.pay)}</div>
         </div>`).join('')}
       ${weeks.length > 12 ? `<button class="btn full" type="button" data-action="weeksAll">${showAllWeeks ? 'Show last 12 weeks' : `Show all ${weeks.length} weeks`}</button>` : ''}
     </div>`;

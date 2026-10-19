@@ -8,6 +8,11 @@ When releasing a change, add an entry here and bump the cache version in `sw.js`
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-10-18 (sw cache `pay-tracker-v9`)
+
+### Added
+- **Weekly totals** now show the average hours per day worked for each week (e.g. "5 days · 8.75 h/day · $875.00").
+
 ## [1.3.0] - 2026-10-18 (sw cache `pay-tracker-v8`)
 
 ### Added
