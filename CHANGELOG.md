@@ -8,6 +8,14 @@ When releasing a change, add an entry here and bump the cache version in `sw.js`
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-18 (sw cache `pay-tracker-v10`)
+
+### Added
+- **Clock in / clock out** at the top of the Timesheet. Tap **Clock in** when you start and **Clock out** when you finish, and the shift is saved for you. A timer shows how long you have been working, and what clocking out right now would record.
+- Times round to the **nearest 15 minutes** (7:23 becomes 7:30, 7:22 becomes 7:15). You can change this to 5 minutes or no rounding in ⚙ → Clock in / out rounding.
+- Clocking in is remembered even if you close the app or restart your phone.
+- If you forget to clock out (16+ hours), the shift opens for you to check before it is saved. **Cancel** throws away a clock-in you did not mean to make.
+
 ## [1.3.1] - 2026-10-18 (sw cache `pay-tracker-v9`)
 
 ### Added

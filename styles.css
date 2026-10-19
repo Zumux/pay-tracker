@@ -69,6 +69,13 @@ main { padding: 12px 12px 0; max-width: 640px; margin: 0 auto; }
 .inline input { flex: 1 1 130px; min-width: 0; }
 
 .year-card { border-color: var(--accent); }
+.clock { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px; margin-bottom: 12px; }
+.clock.on { border-color: var(--good); background: var(--good-soft); }
+.clock.on .main-t { color: var(--good); }
+.clock-actions { display: flex; gap: 8px; margin-left: auto; }
+.clock-btn { padding: 12px 22px; font-size: 16px; }
+.clock .btn.danger.armed { background: var(--danger); color: #fff; }
+
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .chip { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 600; }
 .chip.on { background: var(--accent-soft); color: var(--accent); border-color: transparent; }

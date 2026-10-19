@@ -14,6 +14,7 @@ A small app for tracking work shifts, pay rates and pay periods. It runs on Andr
 ## Features
 
 - **Timesheet**: date, start time, end time, hours and pay for each shift. Hours and pay are calculated automatically. Overnight shifts (ending after midnight) are handled. Shifts are grouped by pay period.
+- **Clock in / out**: a card at the top of the Timesheet. Clock in when you start and clock out when you finish, and the shift saves itself. Times round to the nearest 15 minutes by default (⚙ → *Clock in / out rounding* can switch it to 5 minutes or off). The clock-in survives closing the app. A clock-out after 16+ hours opens the shift for checking instead of saving straight away.
 - **Pay Periods**: period start, period end, pay date, hours, gross pay and estimated net pay. Tap a period to see its shifts and record the pay you actually received.
 - **Reports**:
   - *Hours worked*: pick a From and To date (or tap a quick range like This month or Last 30 days) to see hours, days worked, gross pay and average hours per day worked. Leaving To on today keeps it moving forward each day. Both dates are remembered.
@@ -109,7 +110,7 @@ The files must be served over HTTPS for the app to install. Either free option w
 The app is hosted on GitHub Pages from the `main` branch of <https://github.com/Zumux/pay-tracker>.
 
 1. Edit the files.
-2. In `sw.js`, bump the version in `const CACHE = 'pay-tracker-v9'` (e.g. to `v10`). **Without this, phones keep showing the old version.**
+2. In `sw.js`, bump the version in `const CACHE = 'pay-tracker-v10'` (e.g. to `v11`). **Without this, phones keep showing the old version.**
 3. Add a release section to [CHANGELOG.md](CHANGELOG.md), e.g. `## [1.2.0] - 2026-11-01`, written for the person using the app. The app reads this file to get its version number and shows the new section once in a **What's new** popup after the update. A fix that doesn't need a popup can go under `## [Unreleased]` instead.
 4. Commit and push:
    ```

@@ -34,7 +34,8 @@ const EMPTY = () => ({
   shifts: [],
   rates: [],
   actualNet: {}, // period start (yyyy-mm-dd) → net pay actually received
-  settings: { deductionPct: 20, timeFormat: '12', province: '', customHolidays: [], rangeFrom: '', rangeTo: '', weekStart: 1 },
+  settings: { deductionPct: 20, timeFormat: '12', province: '', customHolidays: [], rangeFrom: '', rangeTo: '', weekStart: 1, clockRound: 15 },
+  clockIn: null, // { at: actual ISO time, date, start: rounded } while clocked in
   lastBackup: null,
   seenVersion: null, // last release whose "What's new" notes were shown
 });
@@ -89,6 +90,9 @@ function normalize(raw) {
   if (isYmd(from)) s.settings.rangeFrom = from;
   if (isYmd(set.rangeTo)) s.settings.rangeTo = set.rangeTo;
   if (set.weekStart === 0) s.settings.weekStart = 0;
+  if ([0, 5, 15].includes(set.clockRound)) s.settings.clockRound = set.clockRound;
+  const c = raw.clockIn;
+  if (c && isYmd(c.date) && isHm(c.start) && !isNaN(Date.parse(c.at))) s.clockIn = { at: c.at, date: c.date, start: c.start };
   if (Object.prototype.hasOwnProperty.call(PROVINCES, set.province)) s.settings.province = set.province;
   s.settings.customHolidays = (Array.isArray(set.customHolidays) ? set.customHolidays : [])
     .filter(h => h && isYmd(h.date))
@@ -377,12 +381,92 @@ function backupBanner() {
     </div>`;
 }
 
+/* ---------- Clock in / out ---------- */
+
+// Rounds a moment to the nearest `step` minutes (0 = nearest minute).
+// Rounding on the epoch lines up with local quarter hours because every time zone offset is a multiple of 15 minutes.
+function roundMoment(d, step) {
+  const ms = (step || 1) * 60000;
+  return new Date(Math.round(d.getTime() / ms) * ms);
+}
+
+const hmOf = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+function elapsedText() {
+  const mins = Math.max(0, Math.floor((Date.now() - Date.parse(S.clockIn.at)) / 60000));
+  return mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h ${pad(mins % 60)} min`;
+}
+
+// What a clock-out right now would record.
+function clockOutPreview() {
+  const c = S.clockIn, end = roundMoment(new Date(), S.settings.clockRound);
+  const hours = round2((end - toDate(c.date).setHours(...c.start.split(':').map(Number))) / 3600000);
+  return { end, hours };
+}
+
+function clockCardHtml() {
+  const c = S.clockIn, step = S.settings.clockRound;
+  const note = step ? `Times round to the nearest ${step} minutes.` : 'Times are not rounded.';
+  if (!c) {
+    return `
+      <div class="card clock">
+        <div><div class="main-t">Not clocked in</div><div class="meta">${note}</div></div>
+        <button class="btn primary clock-btn" type="button" data-action="clockIn">Clock in</button>
+      </div>`;
+  }
+  const actual = hmOf(new Date(c.at));
+  return `
+    <div class="card clock on">
+      <div>
+        <div class="main-t">Clocked in · <span id="clockElapsed">${elapsedText()}</span></div>
+        <div class="meta">Started ${esc(fmtTime(c.start))}${c.date !== today() ? ' on ' + esc(fmtDay(c.date)) : ''}${actual !== c.start ? ` (tapped at ${esc(fmtTime(actual))})` : ''}</div>
+        <div class="meta" id="clockPreview">${clockPreviewText()}</div>
+      </div>
+      <div class="clock-actions">
+        <button class="btn" type="button" data-action="clockCancel">Cancel</button>
+        <button class="btn primary clock-btn" type="button" data-action="clockOut">Clock out</button>
+      </div>
+    </div>`;
+}
+
+function clockPreviewText() {
+  const p = clockOutPreview();
+  return p.hours > 0 ? `Clocking out now records ${esc(fmtTime(hmOf(p.end)))} · ${hrs(p.hours)} h` : 'Clocking out now would record 0 hours.';
+}
+
+function clockIn() {
+  const at = new Date(), start = roundMoment(at, S.settings.clockRound);
+  S.clockIn = { at: at.toISOString(), date: ymdOf(start), start: hmOf(start) };
+  commit(`Clocked in at ${fmtTime(S.clockIn.start)}`);
+}
+
+function clockOut() {
+  const c = S.clockIn, { end, hours } = clockOutPreview();
+  const shift = { date: c.date, start: c.start, end: hmOf(end) };
+  if (hours <= 0) {
+    S.clockIn = null;
+    return commit('Under the rounding time, so no shift was saved.');
+  }
+  // Probably forgot to clock out: let them fix the times before saving.
+  if (hours >= 16) return openShift(null, { ...shift, fromClock: true, warning: `You were clocked in for ${hrs(hours)} hours. Check the end time before saving.` });
+  S.shifts.push({ id: uid(), ...shift });
+  S.clockIn = null;
+  commit(`Shift saved: ${fmtTime(shift.start)} – ${fmtTime(shift.end)} · ${hrs(hours)} h`);
+}
+
+// Keep the running timer fresh while the app is open.
+setInterval(() => {
+  if (!S.clockIn || !$('#clockElapsed')) return;
+  $('#clockElapsed').textContent = elapsedText();
+  $('#clockPreview').innerHTML = clockPreviewText();
+}, 15000);
+
 function timesheetHtml(periods) {
   if (!S.shifts.length) {
-    return `<div class="empty">No shifts yet.<br>Tap <b>+</b> to add one, or import your old data from <b>⚙</b>.</div>`;
+    return clockCardHtml() + `<div class="empty">No shifts yet.<br>Clock in, tap <b>+</b> to add one, or import your old data from <b>⚙</b>.</div>`;
   }
   const noRate = !S.rates.length ? `<div class="banner"><span>Add a pay rate so pay can be calculated.</span><button class="btn" type="button" data-action="gotoRates">Add</button></div>` : '';
-  return backupBanner() + noRate + periods.filter(p => p.shifts.length).map(p => `
+  return clockCardHtml() + backupBanner() + noRate + periods.filter(p => p.shifts.length).map(p => `
     <div class="group-h"><span>${esc(periodLabel(p))}</span><span>${hrs(p.hours)} h · ${money(p.gross)}</span></div>
     <div class="card">${p.shifts.map(s => shiftRow(s, true)).join('')}</div>`).join('');
 }
@@ -627,6 +711,14 @@ function settingsHtml() {
     </div>
 
     <div class="card panel">
+      <h3>Clock in / out rounding</h3>
+      <p>Clock-in and clock-out times round to the nearest step, e.g. with 15 minutes, 7:23 becomes 7:30 and 7:22 becomes 7:15.</p>
+      <div class="seg" role="group" aria-label="Rounding">
+        ${[[0, 'Off'], [5, '5 min'], [15, '15 min']].map(([v, l]) => `<button type="button" class="${S.settings.clockRound === v ? 'on' : ''}" data-action="round${v}">${l}</button>`).join('')}
+      </div>
+    </div>
+
+    <div class="card panel">
       <h3>Time format</h3>
       <p>How times are shown in the app. The time picker when adding a shift follows your phone’s own clock setting.</p>
       <div class="btns">
@@ -709,11 +801,13 @@ async function refreshStorageStatus() {
 
 /* ================= Dialogs ================= */
 
-function openShift(shift) {
+// prefill: values for a new shift (e.g. from the clock), optionally with a warning to show.
+function openShift(shift, prefill) {
   const latest = [...S.shifts].sort((a, b) => (b.date + b.start).localeCompare(a.date + a.start))[0];
-  const s = shift || { date: today(), start: latest ? latest.start : '09:00', end: latest ? latest.end : '17:00' };
+  const s = shift || prefill || { date: today(), start: latest ? latest.start : '09:00', end: latest ? latest.end : '17:00' };
   $('#form').innerHTML = `
     <h2>${shift ? 'Edit shift' : 'Add shift'}</h2>
+    ${prefill && prefill.warning ? `<div class="banner" style="margin-bottom:6px"><span>${esc(prefill.warning)}</span></div>` : ''}
     <label for="f-date">Date</label>
     <input id="f-date" type="date" value="${s.date}" required>
     <div class="two">
@@ -742,6 +836,7 @@ function openShift(shift) {
     if (!isYmd(data.date) || !isHm(data.start) || !isHm(data.end)) return toast('Pick a date, start time and end time.');
     if (shift) Object.assign(shift, data);
     else S.shifts.push({ id: uid(), ...data });
+    if (prefill && prefill.fromClock) S.clockIn = null;
     $('#dlg').close();
     commit(shift ? 'Shift updated' : 'Shift added');
   };
@@ -1023,6 +1118,7 @@ async function importFile(file) {
       if (!confirm(msg)) return;
       next.lastBackup = raw.exported || new Date().toISOString();
       next.seenVersion = S.seenVersion;
+      next.clockIn = S.clockIn; // don't lose a shift that's in progress
       S = next;
       commit('Backup restored');
     } else {
@@ -1070,6 +1166,21 @@ $('#view').addEventListener('click', ev => {
     if (a === 'rangeToday') { S.settings.rangeTo = ''; return commit(); }
     if (a === 'weekMon' || a === 'weekSun') { S.settings.weekStart = a === 'weekMon' ? 1 : 0; return commit(); }
     if (a === 'weeksAll') { showAllWeeks = !showAllWeeks; return render(); }
+    if (a === 'clockIn') return clockIn();
+    if (a === 'clockOut') return clockOut();
+    if (a === 'clockCancel') {
+      if (!action.classList.contains('armed')) {
+        action.classList.add('armed', 'danger');
+        action.textContent = 'Tap to discard';
+        return;
+      }
+      S.clockIn = null;
+      return commit('Clock-in discarded');
+    }
+    if (a.startsWith('round')) {
+      S.settings.clockRound = Number(a.slice(5));
+      return commit();
+    }
     if (a === 'whatsNew') return RELEASES.length ? showReleaseNotes(RELEASES.slice(0, 3), 'What’s new') : toast('Release notes are not available right now.');
     if (a === 'yearPrev' || a === 'yearNext') {
       YEAR = String(Number(YEAR) + (a === 'yearNext' ? 1 : -1));
