@@ -8,6 +8,11 @@ When releasing a change, add an entry here and bump the cache version in `sw.js`
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-18 (sw cache `pay-tracker-v6`)
+
+### Added
+- **Hours since**: at the top of Pay Periods, pick a date to see the hours, days worked and gross pay from that date through today. The date is remembered, so you can keep tracking from a start date, your last raise or your last vacation.
+
 ## [1.1.1] - 2026-10-12 (sw cache `pay-tracker-v5`)
 
 ### Fixed

@@ -67,6 +67,9 @@ main { padding: 12px 12px 0; max-width: 640px; margin: 0 auto; }
 .inline input { flex: 1 1 130px; min-width: 0; }
 
 .year-card { border-color: var(--accent); }
+.since-card .period-top { align-items: center; }
+.since-card input { width: auto; flex: 0 1 170px; min-height: 40px; padding: 7px 10px; }
+.since-card { cursor: default; }
 .year-nav { display: flex; gap: 6px; }
 .year-nav .btn { padding: 4px 12px; font-size: 18px; border: 1px solid var(--line); }
 

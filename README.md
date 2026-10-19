@@ -15,6 +15,7 @@ A small app for tracking work shifts, pay rates and pay periods. It runs on Andr
 
 - **Timesheet**: date, start time, end time, hours and pay for each shift. Hours and pay are calculated automatically. Overnight shifts (ending after midnight) are handled. Shifts are grouped by pay period.
 - **Pay Periods**: period start, period end, pay date, hours, gross pay and estimated net pay. Tap a period to see its shifts and record the pay you actually received.
+- **Hours since**: the first card on Pay Periods. Pick a date to see hours, days worked and gross pay from that date through today (inclusive). The date is remembered.
 - **Year to date**: the top card on Pay Periods shows hours, gross and net paid in the year, with ‹ › to view other years. Income is counted by **pay date**, the same way your T4 counts it (so work from Dec 16–31 counts toward the next year). Net uses your recorded pay where you've entered it, and estimates otherwise.
 - **Pay Rates**: hourly rates with the date they take effect. Each shift uses the rate in effect on its date, so adding a raise (even backdated) updates all pay automatically.
 - **Backup & settings** (⚙ button): export/import a backup, CSV exports, 12/24-hour time, estimated deductions %, province for stat holidays, extra holidays.
@@ -104,7 +105,7 @@ The files must be served over HTTPS for the app to install. Either free option w
 The app is hosted on GitHub Pages from the `main` branch of <https://github.com/Zumux/pay-tracker>.
 
 1. Edit the files.
-2. In `sw.js`, bump the version in `const CACHE = 'pay-tracker-v5'` (e.g. to `v6`). **Without this, phones keep showing the old version.**
+2. In `sw.js`, bump the version in `const CACHE = 'pay-tracker-v6'` (e.g. to `v7`). **Without this, phones keep showing the old version.**
 3. Add a release section to [CHANGELOG.md](CHANGELOG.md), e.g. `## [1.2.0] - 2026-11-01`, written for the person using the app. The app reads this file to get its version number and shows the new section once in a **What's new** popup after the update. A fix that doesn't need a popup can go under `## [Unreleased]` instead.
 4. Commit and push:
    ```

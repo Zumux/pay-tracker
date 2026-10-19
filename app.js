@@ -34,7 +34,7 @@ const EMPTY = () => ({
   shifts: [],
   rates: [],
   actualNet: {}, // period start (yyyy-mm-dd) → net pay actually received
-  settings: { deductionPct: 20, timeFormat: '12', province: '', customHolidays: [] },
+  settings: { deductionPct: 20, timeFormat: '12', province: '', customHolidays: [], sinceDate: '' },
   lastBackup: null,
   seenVersion: null, // last release whose "What's new" notes were shown
 });
@@ -85,6 +85,7 @@ function normalize(raw) {
   if (pct >= 0 && pct < 100) s.settings.deductionPct = pct;
   const set = raw.settings || {};
   if (set.timeFormat === '24') s.settings.timeFormat = '24';
+  if (isYmd(set.sinceDate)) s.settings.sinceDate = set.sinceDate;
   if (Object.prototype.hasOwnProperty.call(PROVINCES, set.province)) s.settings.province = set.province;
   s.settings.customHolidays = (Array.isArray(set.customHolidays) ? set.customHolidays : [])
     .filter(h => h && isYmd(h.date))
@@ -383,6 +384,36 @@ function timesheetHtml(periods) {
     <div class="card">${p.shifts.map(s => shiftRow(s, true)).join('')}</div>`).join('');
 }
 
+// Hours worked from a chosen date through today (inclusive). The date is remembered.
+function sinceCardHtml() {
+  if (!S.shifts.length) return '';
+  const t = today(), since = S.settings.sinceDate;
+  let body = '<div class="meta" style="margin-top:8px">Pick a date to see the hours you’ve worked from then until today.</div>';
+  if (since) {
+    const list = S.shifts.filter(s => s.date >= since && s.date <= t);
+    const hours = round2(list.reduce((n, s) => n + shiftHours(s), 0));
+    const pay = round2(list.reduce((n, s) => n + shiftPay(s), 0));
+    const days = new Set(list.map(s => s.date)).size;
+    body = since > t
+      ? '<div class="meta" style="margin-top:8px">That date is in the future.</div>'
+      : `
+        <div class="stats">
+          <div class="stat"><div class="lbl">Hours</div><div class="val">${hrs(hours)}</div></div>
+          <div class="stat"><div class="lbl">Days worked</div><div class="val">${days}</div></div>
+          <div class="stat"><div class="lbl">Gross pay</div><div class="val">${money(pay)}</div></div>
+        </div>
+        <div class="meta" style="margin-top:8px">${esc(fmtLong(since))} – today · ${list.length} shift${list.length === 1 ? '' : 's'}</div>`;
+  }
+  return `
+    <div class="card period since-card">
+      <div class="period-top">
+        <div class="period-title">Hours since</div>
+        <input id="sinceDate" type="date" value="${since}" max="${t}" aria-label="Start date">
+      </div>
+      ${body}
+    </div>`;
+}
+
 let YEAR = null;
 
 // Year-to-date totals, counted by pay date (the same way your T4 counts income).
@@ -423,7 +454,7 @@ function yearCardHtml(periods) {
 }
 
 function periodsHtml(periods) {
-  return yearCardHtml(periods) + periods.map(p => {
+  return sinceCardHtml() + yearCardHtml(periods) + periods.map(p => {
     const [label, cls] = periodStatus(p);
     const moved = p.payDate !== p.scheduled ? ` <span class="meta">(moved from ${esc(fmtDay(p.scheduled))}, ${esc(p.moveReason)})</span>` : '';
     const actualNote = p.actual
@@ -950,9 +981,13 @@ $('#view').addEventListener('click', ev => {
 });
 
 $('#view').addEventListener('change', ev => {
-  if (ev.target.id !== 'province') return;
-  S.settings.province = ev.target.value;
-  commit('Province saved');
+  if (ev.target.id === 'province') {
+    S.settings.province = ev.target.value;
+    commit('Province saved');
+  } else if (ev.target.id === 'sinceDate') {
+    S.settings.sinceDate = isYmd(ev.target.value) ? ev.target.value : '';
+    commit();
+  }
 });
 
 $('#importFile').onchange = ev => {
